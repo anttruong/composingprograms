@@ -6,6 +6,7 @@ from geo import us_states, geo_distance, make_position, longitude, latitude
 from maps import draw_state, draw_name, draw_dot, wait
 from string import ascii_letters
 from ucb import main, trace, interact, log_current_line
+from functools import reduce
 
 
 ###################################
@@ -115,7 +116,18 @@ def extract_words(text):
     ['cat', 'on', 'my', 'keyboard']
     """
     "*** YOUR CODE HERE ***"
-    return text.split()  # Replace this line
+    words = []
+    word = ''
+    for c in text:
+        if c in ascii_letters:
+            word += c
+        else:
+            if word != '':
+                words.append(word)
+                word = ''
+    if word != '':
+        words.append(word)
+    return words 
 
 def make_sentiment(value):
     """Return a sentiment, which represents a value that may not exist.
@@ -136,15 +148,18 @@ def make_sentiment(value):
     """
     assert value is None or (value >= -1 and value <= 1), 'Illegal value'
     "*** YOUR CODE HERE ***"
+    return value
 
 def has_sentiment(s):
     """Return whether sentiment s has a value."""
     "*** YOUR CODE HERE ***"
+    return s is not None
 
 def sentiment_value(s):
     """Return the value of a sentiment s."""
     assert has_sentiment(s), 'No sentiment value'
     "*** YOUR CODE HERE ***"
+    return s
 
 def get_word_sentiment(word):
     """Return a sentiment representing the degree of positive or negative
@@ -183,7 +198,19 @@ def analyze_tweet_sentiment(tweet):
     # You may change any of the lines below.
     average = make_sentiment(None)
     "*** YOUR CODE HERE ***"
-    return average
+    words = tweet_words(tweet)
+    words_with_sentiment = 0
+    result = None
+    for word in words:
+        sentiment = get_word_sentiment(word)
+        if has_sentiment(sentiment):
+            if not result:
+                result = 0
+            result += sentiment_value(sentiment)
+            words_with_sentiment += 1
+    if result is None:
+        return make_sentiment(None)
+    return make_sentiment(result/words_with_sentiment)
 
 
 #################################
@@ -213,6 +240,28 @@ def find_centroid(polygon):
     (1.0, 2.0, 0.0)
     """
     "*** YOUR CODE HERE ***"
+    def area(poly):
+        result = 0
+        for i in range(len(poly)-1):
+            result += latitude(poly[i]) * longitude(poly[i+1]) - \
+                latitude(poly[i+1]) * longitude(poly[i])
+        return result/2
+    
+    def cen(poly):
+        numerator_x, numerator_y = 0, 0
+        for i in range(len(poly)-1):
+            first_term_x = latitude(poly[i]) + latitude(poly[i+1])
+            first_term_y = longitude(poly[i]) + longitude(poly[i+1])
+            second_term = latitude(poly[i]) * longitude(poly[i+1]) - \
+                latitude(poly[i+1]) * longitude(poly[i])
+            numerator_x += first_term_x * second_term
+            numerator_y += first_term_y * second_term
+        return [numerator_x/(6 * area(poly)), numerator_y/(6 * area(poly))]
+
+    if area(polygon) == 0:
+        return (latitude(polygon[0]), longitude(polygon[0]), 0)
+    else:
+        return cen(polygon) + [abs(area(polygon))]
 
 def find_state_center(polygons):
     """Compute the geographic center of a state, averaged over its polygons.
@@ -236,7 +285,13 @@ def find_state_center(polygons):
     -156.21763
     """
     "*** YOUR CODE HERE ***"
-
+    sum_x, sum_y, sum_area = 0, 0, 0
+    for polygon in polygons:
+        cen_x, cen_y, area = find_centroid(polygon)
+        sum_x += cen_x * area 
+        sum_y += cen_y * area 
+        sum_area += area
+    return make_position(sum_x/sum_area, sum_y/sum_area)
 
 ###################################
 # Phase 3: The Mood of the Nation #
@@ -263,6 +318,16 @@ def group_tweets_by_state(tweets):
     """
     tweets_by_state = {}
     "*** YOUR CODE HERE ***"
+    for tweet in tweets:
+        closest_state = 'CA'
+        closest_state_center = find_state_center(us_states['CA'])
+        for state in us_states:
+            state_center = find_state_center(us_states[state])
+            if geo_distance(tweet_location(tweet), state_center) < \
+                geo_distance(tweet_location(tweet), closest_state_center):
+                closest_state = state
+                closest_state_center = state_center
+        tweets_by_state[closest_state] = tweets_by_state.get(closest_state, []) + [tweet]
     return tweets_by_state
 
 def average_sentiments(tweets_by_state):
@@ -279,6 +344,17 @@ def average_sentiments(tweets_by_state):
     """
     averaged_state_sentiments = {}
     "*** YOUR CODE HERE ***"
+    for state in tweets_by_state:
+        sentiment_sum = None
+        tweets = [tweet for tweet in tweets_by_state.get(state, []) if \
+            has_sentiment(analyze_tweet_sentiment(tweet))]
+        num_tweets = len(tweets)
+        for tweet in tweets:
+            if not sentiment_sum:
+                sentiment_sum = 0
+            sentiment_sum += sentiment_value(analyze_tweet_sentiment(tweet))
+        if num_tweets > 0:
+            averaged_state_sentiments[state] = sentiment_sum/num_tweets
     return averaged_state_sentiments
 
 
