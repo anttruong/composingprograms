@@ -75,6 +75,17 @@ def apply_primitive(procedure, args, env):
     4
     """
     "*** YOUR CODE HERE ***"
+    arg_list = []
+    while scheme_listp(args) and args is not nil:
+        arg_list.append(scheme_car(args))
+        args = scheme_cdr(args)
+    try:
+        if procedure.use_env:
+            return procedure.fn(*arg_list, env)
+        else:
+            return procedure.fn(*arg_list)
+    except TypeError as e:
+        raise SchemeError
 
 ################
 # Environments #
@@ -98,6 +109,12 @@ class Frame:
     def lookup(self, symbol):
         """Return the value bound to SYMBOL.  Errors if SYMBOL is not found."""
         "*** YOUR CODE HERE ***"
+        e = self
+        while e is not None:
+            if symbol in self.bindings:
+                return self.bindings[symbol]
+            else:
+                e = self.parent
         raise SchemeError("unknown identifier: {0}".format(str(symbol)))
 
 
@@ -200,6 +217,8 @@ def do_define_form(vals, env):
     if scheme_symbolp(target):
         check_form(vals, 2, 2)
         "*** YOUR CODE HERE ***"
+        env.define(vals[0], scheme_eval(vals[1], env))
+        return vals[0]
     elif isinstance(target, Pair):
         "*** YOUR CODE HERE ***"
     else:
@@ -209,6 +228,7 @@ def do_quote_form(vals):
     """Evaluate a quote form with parameters VALS."""
     check_form(vals, 1, 1)
     "*** YOUR CODE HERE ***"
+    return vals[0]
 
 
 def do_let_form(vals, env):
