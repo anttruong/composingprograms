@@ -60,6 +60,8 @@ def scheme_apply(procedure, args, env):
         return apply_primitive(procedure, args, env)
     elif isinstance(procedure, LambdaProcedure):
         "*** YOUR CODE HERE ***"
+        frame = procedure.env.make_call_frame(procedure.formals, args)
+        return scheme_eval(procedure.body, frame)
     elif isinstance(procedure, MuProcedure):
         "*** YOUR CODE HERE ***"
     else:
@@ -79,11 +81,10 @@ def apply_primitive(procedure, args, env):
     while scheme_listp(args) and args is not nil:
         arg_list.append(scheme_car(args))
         args = scheme_cdr(args)
+    if procedure.use_env:
+        arg_list.append(env)
     try:
-        if procedure.use_env:
-            return procedure.fn(*arg_list, env)
-        else:
-            return procedure.fn(*arg_list)
+        return procedure.fn(*arg_list)
     except TypeError as e:
         raise SchemeError
 
@@ -111,8 +112,8 @@ class Frame:
         "*** YOUR CODE HERE ***"
         e = self
         while e is not None:
-            if symbol in self.bindings:
-                return self.bindings[symbol]
+            if symbol in e.bindings:
+                return e.bindings[symbol]
             else:
                 e = self.parent
         raise SchemeError("unknown identifier: {0}".format(str(symbol)))
@@ -138,6 +139,12 @@ class Frame:
         """
         frame = Frame(self)
         "*** YOUR CODE HERE ***"
+        if len(formals) != len(vals):
+            raise SchemeError
+        while formals is not nil:
+            frame.define(scheme_car(formals), scheme_car(vals))
+            formals = scheme_cdr(formals)
+            vals = scheme_cdr(vals)
         return frame
 
     def define(self, sym, val):
@@ -202,6 +209,10 @@ def do_lambda_form(vals, env):
     formals = vals[0]
     check_formals(formals)
     "*** YOUR CODE HERE ***"
+    body = scheme_cdr(vals)
+    if len(body) > 1:
+        return LambdaProcedure(formals, Pair('begin', body), env)
+    return LambdaProcedure(formals, scheme_car(body), env) 
 
 def do_mu_form(vals):
     """Evaluate a mu form with parameters VALS."""
@@ -221,6 +232,8 @@ def do_define_form(vals, env):
         return vals[0]
     elif isinstance(target, Pair):
         "*** YOUR CODE HERE ***"
+        env.define(vals[0][0], do_lambda_form(Pair(Pair(vals[0][1], nil), scheme_cdr(vals)), env))
+        return vals[0][0]
     else:
         raise SchemeError("bad argument to define")
 
@@ -300,6 +313,12 @@ def do_begin_form(vals, env):
     """Evaluate begin form with parameters VALS in environment ENV."""
     check_form(vals, 1)
     "*** YOUR CODE HERE ***"
+    result = nil
+    while vals is not nil:
+        result = scheme_car(vals)
+        scheme_eval(result, env)
+        vals = scheme_cdr(vals)
+    return result
 
 LOGIC_FORMS = {
         "and": do_and_form,
@@ -331,6 +350,13 @@ def check_formals(formals):
     >>> check_formals(read_line("(a b c)"))
     """
     "*** YOUR CODE HERE ***"
+    vals = []
+    while formals is not nil:
+        val = scheme_car(formals)
+        if val in vals or not scheme_symbolp(val):
+            raise SchemeError
+        vals.append(val)
+        formals = scheme_cdr(formals)
 
 ##################
 # Tail Recursion #
