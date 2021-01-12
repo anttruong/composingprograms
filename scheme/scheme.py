@@ -324,6 +324,12 @@ def do_cond_form(vals, env):
             test = scheme_eval(clause.first, env)
         if scheme_true(test):
             "*** YOUR CODE HERE ***"
+            if len(clause) >= 2:
+                return Pair('begin', (scheme_cdr(clause)))
+            elif len(clause) == 1:
+                return quote(scheme_eval(clause.first, env))
+            else:
+                return quote(scheme_eval(clause.second, env))
     return okay
 
 def do_begin_form(vals, env):
