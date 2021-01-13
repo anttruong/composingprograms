@@ -255,6 +255,9 @@ def do_let_form(vals, env):
     # Add a frame containing bindings
     names, values = nil, nil
     "*** YOUR CODE HERE ***"
+    for val in bindings:
+        names = Pair(scheme_car(val), names)
+        values = Pair(scheme_eval(scheme_car(scheme_cdr(val)), env), values)
     new_env = env.make_call_frame(names, values)
 
     # Evaluate all but the last expression after bindings, and return the last
