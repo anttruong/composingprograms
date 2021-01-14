@@ -64,6 +64,8 @@ def scheme_apply(procedure, args, env):
         return scheme_eval(procedure.body, frame)
     elif isinstance(procedure, MuProcedure):
         "*** YOUR CODE HERE ***"
+        frame = env.make_call_frame(procedure.formals, args)
+        return scheme_eval(procedure.body, frame)
     else:
         raise SchemeError("Cannot call {0}".format(str(procedure)))
 
@@ -86,7 +88,7 @@ def apply_primitive(procedure, args, env):
     try:
         return procedure.fn(*arg_list)
     except TypeError as e:
-        raise SchemeError
+        raise SchemeError("invalid type")
 
 ################
 # Environments #
@@ -115,7 +117,7 @@ class Frame:
             if symbol in e.bindings:
                 return e.bindings[symbol]
             else:
-                e = self.parent
+                e = e.parent
         raise SchemeError("unknown identifier: {0}".format(str(symbol)))
 
 
@@ -140,7 +142,7 @@ class Frame:
         frame = Frame(self)
         "*** YOUR CODE HERE ***"
         if len(formals) != len(vals):
-            raise SchemeError
+            raise SchemeError("should be an equal number of formals and vals")
         while formals is not nil:
             frame.define(scheme_car(formals), scheme_car(vals))
             formals = scheme_cdr(formals)
@@ -220,6 +222,10 @@ def do_mu_form(vals):
     formals = vals[0]
     check_formals(formals)
     "*** YOUR CODE HERE ***"
+    body = scheme_cdr(vals)
+    if len(body) > 1:
+        return MuProcedure(formals, Pair('begin', body))
+    return MuProcedure(formals, scheme_car(body)) 
 
 def do_define_form(vals, env):
     """Evaluate a define form with parameters VALS in environment ENV."""
@@ -380,7 +386,7 @@ def check_formals(formals):
     while formals is not nil:
         val = scheme_car(formals)
         if val in vals or not scheme_symbolp(val):
-            raise SchemeError
+            raise SchemeError("invalid formal")
         vals.append(val)
         formals = scheme_cdr(formals)
 
